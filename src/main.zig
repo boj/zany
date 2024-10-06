@@ -15,14 +15,10 @@ pub fn main() !void {
     defer {
         const deinit_status = gpa.deinit();
         if (deinit_status == .leak) {
-            std.log.err("memeory leak", .{});
+            std.log.err("memory leak", .{});
         }
     }
     const alloc = gpa.allocator();
-
-    const PieceTable = piece_table.PieceTable();
-    var pt = PieceTable{ .pieces = undefined };
-    try pt.initPieceTable(alloc, "bojo");
 
     var tty = try vaxis.Tty.init();
     defer tty.deinit();
