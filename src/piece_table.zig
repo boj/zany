@@ -75,6 +75,11 @@ pub fn PieceTable() type {
             try self.root.append(piece);
         }
 
+        pub fn replace(self: *Self, old: []const u8, new: []const u8, start: usize) !void {
+            try self.append(Op.delete, old, start);
+            try self.append(Op.add, new, start);
+        }
+
         // Caller owns and must free the returned slice with the same allocator
         pub fn replay(self: *Self) ![]const u8 {
             var origin = std.ArrayList(u8).init(self.allocator);
@@ -138,10 +143,8 @@ test "PieceTable: init, append, len, replay" {
     try testing.expect(std.mem.eql(u8, "Here World\n", result));
     allocator.free(result);
 
-    try pt.append(Op.delete, "Here", 0);
-    try pt.append(Op.add, "Sup", 0);
-    try testing.expect(pt.len() == 5);
-
+    try pt.replace("Here", "Sup", 0);
+    try testing.expect(pt.len() == 5); // delete + add
     result = try pt.replay();
     try testing.expect(std.mem.eql(u8, "Sup World\n", result));
     allocator.free(result);
