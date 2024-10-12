@@ -73,6 +73,14 @@ pub fn PieceTable() type {
         }
 
         pub fn append(self: *Self, op: Op, string: []const u8, start: usize) !void {
+            // If appending after undo, remove future items
+            self.trim();
+
+            if (self.root.items.len > self.compute_idx()) {
+                for (self.compute_idx() + 1..self.root.items.len) |idx| {
+                    _ = self.root.orderedRemove(idx);
+                }
+            }
             for (0..self.root.items.len) |i| {
                 self.root.items[i].active = false;
             }
@@ -115,6 +123,14 @@ pub fn PieceTable() type {
                 if (self.root.items[idx].active == false) i += 1 else break;
             }
             return i;
+        }
+
+        fn trim(self: *Self) void {
+            if (self.root.items.len > self.compute_idx()) {
+                for (self.compute_idx() + 1..self.root.items.len) |idx| {
+                    _ = self.root.orderedRemove(idx);
+                }
+            }
         }
 
         pub fn undo(self: *Self) void {
@@ -215,5 +231,31 @@ test "PieceTable: undo, redo idempotence" {
 
     const result = try pt.replay();
     try testing.expect(std.mem.eql(u8, "Hello World! What's up?\n", result));
+    allocator.free(result);
+}
+
+test "PieceTable: undo, append" {
+    const allocator = testing.allocator;
+
+    var pt = PieceTable().init(allocator);
+    defer pt.deinit();
+
+    try pt.append(Op.origin, "Hello World\n", 0);
+    try pt.append(Op.add, "! What's up?", 11);
+    try testing.expect(pt.len() == 2);
+
+    pt.undo();
+    try pt.append(Op.add, "! UNDO", 11);
+    try testing.expect(pt.len() == 2);
+
+    var result = try pt.replay();
+    try testing.expect(std.mem.eql(u8, "Hello World! UNDO\n", result));
+    allocator.free(result);
+
+    try pt.append(Op.add, " THE WORLD", 17);
+    try testing.expect(pt.len() == 3);
+
+    result = try pt.replay();
+    try testing.expect(std.mem.eql(u8, "Hello World! UNDO THE WORLD\n", result));
     allocator.free(result);
 }
